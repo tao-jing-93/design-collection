@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -38,6 +38,7 @@ export function AddSiteDialog({
   const [isOpen, setIsOpen] = useState(false);
   // Removed internal auth step as user is already authenticated via App
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const COLLAPSED_LIST_HEIGHT = 48;
 
   // Form state
   const [resourceType, setResourceType] = useState<
@@ -57,6 +58,16 @@ export function AddSiteDialog({
 
   const [categoriesInput, setCategoriesInput] = useState("");
   const [tagsInput, setTagsInput] = useState("");
+  const [categoriesExpanded, setCategoriesExpanded] =
+    useState(false);
+  const [tagsExpanded, setTagsExpanded] = useState(false);
+  const [categoriesOverflow, setCategoriesOverflow] =
+    useState(false);
+  const [tagsOverflow, setTagsOverflow] = useState(false);
+  const categoriesListRef = useRef<HTMLDivElement | null>(
+    null,
+  );
+  const tagsListRef = useRef<HTMLDivElement | null>(null);
 
   const PRESET_CATEGORIES = [
     "动效",
@@ -114,6 +125,38 @@ export function AddSiteDialog({
       }
     };
   }, [previewUrl]);
+
+  useEffect(() => {
+    const updateOverflow = () => {
+      if (categoriesListRef.current) {
+        setCategoriesOverflow(
+          categoriesListRef.current.scrollHeight >
+            COLLAPSED_LIST_HEIGHT + 1,
+        );
+      } else {
+        setCategoriesOverflow(false);
+      }
+      if (tagsListRef.current) {
+        setTagsOverflow(
+          tagsListRef.current.scrollHeight >
+            COLLAPSED_LIST_HEIGHT + 1,
+        );
+      } else {
+        setTagsOverflow(false);
+      }
+    };
+
+    updateOverflow();
+    window.addEventListener("resize", updateOverflow);
+    return () =>
+      window.removeEventListener("resize", updateOverflow);
+  }, [
+    COLLAPSED_LIST_HEIGHT,
+    categoriesInput,
+    tagsInput,
+    uniqueCategories.length,
+    existingTags.length,
+  ]);
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -182,6 +225,8 @@ export function AddSiteDialog({
     setPreviewUrl(null);
     setCategoriesInput("");
     setTagsInput("");
+    setCategoriesExpanded(false);
+    setTagsExpanded(false);
   };
 
   const toggleCategory = (cat: string) => {
@@ -228,16 +273,26 @@ export function AddSiteDialog({
           className="border-neutral-800 text-neutral-300 [&>span]:flex [&>span]:items-center [&>span]:gap-2 [&>span]:translate-x-0 [&>span]:before:content-[''] [&>span]:before:size-4 [&>span]:before:bg-current [&>span]:before:[mask-image:url('data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27currentColor%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M5%2012h14%27%2F%3E%3Cpath%20d%3D%27M12%205v14%27%2F%3E%3C%2Fsvg%3E')] [&>span]:before:[mask-size:contain] [&>span]:before:[mask-repeat:no-repeat] [&>span]:before:[mask-position:center] [&>div:last-child]:opacity-0 group-hover:[&>div:last-child]:opacity-100"
         />
       </DialogTrigger>
-      <DialogContent className="bg-[#1C1C1E] border-neutral-800 text-neutral-100 sm:max-w-[500px] shadow-2xl outline-none">
-        <form onSubmit={handleFormSubmit} className="space-y-4">
-          <DialogHeader>
+      <DialogContent className="bg-[#1C1C1E] border-neutral-800 text-neutral-100 sm:max-w-[500px] shadow-2xl outline-none overflow-hidden flex flex-col">
+        <form
+          onSubmit={handleFormSubmit}
+          className="flex min-h-0 w-full min-w-0 flex-1 flex-col"
+        >
+          <DialogHeader className="shrink-0 pb-4 min-w-0">
             <DialogTitle>Add New Resource</DialogTitle>
-            <DialogDescription className="text-neutral-400">
+            <DialogDescription
+              className="text-neutral-400"
+              style={{ overflowWrap: "anywhere" }}
+            >
               Share a high-quality design resource.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-5 py-4">
+          <div
+            className="dialog-scroll flex-1 min-w-0 overflow-y-auto overflow-x-hidden pr-2"
+            style={{ minHeight: 0 }}
+          >
+            <div className="grid gap-5 pb-4">
             {/* Resource Type Toggle */}
             <div className="flex p-1 bg-[#121212] rounded-lg border border-neutral-800">
               <button
@@ -343,7 +398,16 @@ export function AddSiteDialog({
                   )}
                 </div>
                 {/* Presets & Existing Categories */}
-                <div className="flex flex-wrap gap-1.5 pt-1">
+                <div
+                  ref={categoriesListRef}
+                  className="flex flex-wrap gap-1.5 pt-1"
+                  style={{
+                    maxHeight: categoriesExpanded
+                      ? "none"
+                      : COLLAPSED_LIST_HEIGHT,
+                    overflow: categoriesExpanded ? "visible" : "hidden",
+                  }}
+                >
                   {uniqueCategories.map((cat) => (
                     <button
                       key={cat}
@@ -359,6 +423,17 @@ export function AddSiteDialog({
                     </button>
                   ))}
                 </div>
+                {categoriesOverflow && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCategoriesExpanded((prev) => !prev)
+                    }
+                    className="mt-1 text-xs text-neutral-400 cursor-pointer hover:text-white"
+                  >
+                    {categoriesExpanded ? "收起" : "展开"}
+                  </button>
+                )}
               </div>
               <div className="space-y-2">
                 <Label
@@ -390,22 +465,44 @@ export function AddSiteDialog({
                 </div>
                 {/* Existing Tags */}
                 {existingTags.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    {existingTags.map((tag) => (
+                  <>
+                    <div
+                      ref={tagsListRef}
+                      className="flex flex-wrap gap-1.5 pt-1"
+                      style={{
+                        maxHeight: tagsExpanded
+                          ? "none"
+                          : COLLAPSED_LIST_HEIGHT,
+                        overflow: tagsExpanded ? "visible" : "hidden",
+                      }}
+                    >
+                      {existingTags.map((tag) => (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => toggleTag(tag)}
+                          className={`px-2 py-0.5 text-[10px] rounded border transition-colors ${
+                            tagsInput.includes(tag)
+                              ? "bg-white text-black border-white"
+                              : "bg-[#1C1C1E] text-neutral-400 border-neutral-800 hover:border-neutral-600 hover:bg-white/5"
+                          }`}
+                        >
+                          #{tag}
+                        </button>
+                      ))}
+                    </div>
+                    {tagsOverflow && (
                       <button
-                        key={tag}
                         type="button"
-                        onClick={() => toggleTag(tag)}
-                        className={`px-2 py-0.5 text-[10px] rounded border transition-colors ${
-                          tagsInput.includes(tag)
-                            ? "bg-white text-black border-white"
-                            : "bg-[#1C1C1E] text-neutral-400 border-neutral-800 hover:border-neutral-600 hover:bg-white/5"
-                        }`}
+                        onClick={() =>
+                          setTagsExpanded((prev) => !prev)
+                        }
+                        className="mt-1 text-xs text-neutral-400 cursor-pointer hover:text-white"
                       >
-                        #{tag}
+                        {tagsExpanded ? "收起" : "展开"}
                       </button>
-                    ))}
-                  </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -464,9 +561,10 @@ export function AddSiteDialog({
                 placeholder="Brief description..."
               />
             </div>
+            </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="shrink-0 pt-4">
             <div className="w-full">
               <InteractiveHoverButton
                 type="submit"

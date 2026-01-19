@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -40,6 +40,7 @@ export function EditSiteDialog({
 }: EditSiteDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const COLLAPSED_LIST_HEIGHT = 48;
 
   // Form state
   const [resourceType, setResourceType] = useState<
@@ -67,6 +68,16 @@ export function EditSiteDialog({
   const [tagsInput, setTagsInput] = useState(
     site.tags.join(", "),
   );
+  const [categoriesExpanded, setCategoriesExpanded] =
+    useState(false);
+  const [tagsExpanded, setTagsExpanded] = useState(false);
+  const [categoriesOverflow, setCategoriesOverflow] =
+    useState(false);
+  const [tagsOverflow, setTagsOverflow] = useState(false);
+  const categoriesListRef = useRef<HTMLDivElement | null>(
+    null,
+  );
+  const tagsListRef = useRef<HTMLDivElement | null>(null);
 
   const PRESET_CATEGORIES = [
     "动效",
@@ -99,8 +110,42 @@ export function EditSiteDialog({
         site.categories?.join(", ") || site.category || "",
       );
       setTagsInput(site.tags.join(", "));
+      setCategoriesExpanded(false);
+      setTagsExpanded(false);
     }
   }, [site, open]);
+
+  useEffect(() => {
+    const updateOverflow = () => {
+      if (categoriesListRef.current) {
+        setCategoriesOverflow(
+          categoriesListRef.current.scrollHeight >
+            COLLAPSED_LIST_HEIGHT + 1,
+        );
+      } else {
+        setCategoriesOverflow(false);
+      }
+      if (tagsListRef.current) {
+        setTagsOverflow(
+          tagsListRef.current.scrollHeight >
+            COLLAPSED_LIST_HEIGHT + 1,
+        );
+      } else {
+        setTagsOverflow(false);
+      }
+    };
+
+    updateOverflow();
+    window.addEventListener("resize", updateOverflow);
+    return () =>
+      window.removeEventListener("resize", updateOverflow);
+  }, [
+    COLLAPSED_LIST_HEIGHT,
+    categoriesInput,
+    tagsInput,
+    uniqueCategories.length,
+    existingTags.length,
+  ]);
 
   // Handle paste
   useEffect(() => {
@@ -239,16 +284,26 @@ export function EditSiteDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-[#1C1C1E] border-neutral-800 text-neutral-100 sm:max-w-[500px] shadow-2xl outline-none">
-        <form onSubmit={handleFormSubmit} className="space-y-4">
-          <DialogHeader>
+      <DialogContent className="bg-[#1C1C1E] border-neutral-800 text-neutral-100 sm:max-w-[500px] shadow-2xl outline-none overflow-hidden flex flex-col">
+        <form
+          onSubmit={handleFormSubmit}
+          className="flex min-h-0 w-full min-w-0 flex-1 flex-col"
+        >
+          <DialogHeader className="shrink-0 pb-2 min-w-0">
             <DialogTitle>Edit Resource</DialogTitle>
-            <DialogDescription className="text-neutral-400">
+            <DialogDescription
+              className="text-neutral-400"
+              style={{ overflowWrap: "anywhere" }}
+            >
               Update details for {site.title}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-5 py-4">
+          <div
+            className="dialog-scroll flex-1 min-w-0 overflow-y-auto overflow-x-hidden pr-2"
+            style={{ minHeight: 0 }}
+          >
+            <div className="grid gap-5 pb-4">
             {/* Resource Type Toggle */}
             <div className="flex p-1 bg-[#121212] rounded-lg border border-neutral-800">
               <button
@@ -350,7 +405,16 @@ export function EditSiteDialog({
                   )}
                 </div>
                 {/* Presets & Existing Categories */}
-                <div className="flex flex-wrap gap-1.5 pt-1">
+                <div
+                  ref={categoriesListRef}
+                  className="flex flex-wrap gap-1.5 pt-1"
+                  style={{
+                    maxHeight: categoriesExpanded
+                      ? "none"
+                      : COLLAPSED_LIST_HEIGHT,
+                    overflow: categoriesExpanded ? "visible" : "hidden",
+                  }}
+                >
                   {uniqueCategories.map((cat) => (
                     <button
                       key={cat}
@@ -366,6 +430,17 @@ export function EditSiteDialog({
                     </button>
                   ))}
                 </div>
+                {categoriesOverflow && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCategoriesExpanded((prev) => !prev)
+                    }
+                    className="mt-1 text-xs text-neutral-400 cursor-pointer hover:text-white"
+                  >
+                    {categoriesExpanded ? "收起" : "展开"}
+                  </button>
+                )}
               </div>
               <div className="space-y-2">
                 <Label
@@ -396,22 +471,44 @@ export function EditSiteDialog({
                 </div>
                 {/* Existing Tags */}
                 {existingTags.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    {existingTags.map((tag) => (
+                  <>
+                    <div
+                      ref={tagsListRef}
+                      className="flex flex-wrap gap-1.5 pt-1"
+                      style={{
+                        maxHeight: tagsExpanded
+                          ? "none"
+                          : COLLAPSED_LIST_HEIGHT,
+                        overflow: tagsExpanded ? "visible" : "hidden",
+                      }}
+                    >
+                      {existingTags.map((tag) => (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => toggleTag(tag)}
+                          className={`px-2 py-0.5 text-[10px] rounded border transition-colors ${
+                            tagsInput.includes(tag)
+                              ? "bg-white text-black border-white"
+                              : "bg-[#1C1C1E] text-neutral-400 border-neutral-800 hover:border-neutral-600"
+                          }`}
+                        >
+                          #{tag}
+                        </button>
+                      ))}
+                    </div>
+                    {tagsOverflow && (
                       <button
-                        key={tag}
                         type="button"
-                        onClick={() => toggleTag(tag)}
-                        className={`px-2 py-0.5 text-[10px] rounded border transition-colors ${
-                          tagsInput.includes(tag)
-                            ? "bg-white text-black border-white"
-                            : "bg-[#1C1C1E] text-neutral-400 border-neutral-800 hover:border-neutral-600"
-                        }`}
+                        onClick={() =>
+                          setTagsExpanded((prev) => !prev)
+                        }
+                        className="mt-1 text-xs text-neutral-400 cursor-pointer hover:text-white"
                       >
-                        #{tag}
+                        {tagsExpanded ? "收起" : "展开"}
                       </button>
-                    ))}
-                  </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -467,9 +564,10 @@ export function EditSiteDialog({
                 className="bg-[#121212] border-neutral-800 focus-visible:border-neutral-700 focus-visible:ring-0 min-h-[80px]"
               />
             </div>
+            </div>
           </div>
 
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="shrink-0 pt-2 gap-2 sm:gap-0">
             <Button
               type="button"
               variant="destructive"
