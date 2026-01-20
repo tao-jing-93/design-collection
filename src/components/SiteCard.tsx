@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Pencil, Terminal } from "lucide-react";
-import placeholderIcon from "../assets/logo.png";
+const placeholderIcon = "/logo.png";
 
 export interface Site {
   id: string;
@@ -24,12 +24,15 @@ export function SiteCard({ site, onEdit }: SiteCardProps) {
   const [imageStatus, setImageStatus] = useState<
     "loading" | "loaded" | "error"
   >("loading");
+  const [isHovered, setIsHovered] = useState(false);
+  const [isEditHovered, setIsEditHovered] = useState(false);
 
-  const hasImage = Boolean(site.imageUrl?.trim());
+  const normalizedImageUrl = site.imageUrl?.trim() ?? "";
+  const hasImage = normalizedImageUrl !== "";
 
   useEffect(() => {
-    setImageStatus(hasImage ? "loading" : "error");
-  }, [hasImage]);
+    setImageStatus(normalizedImageUrl ? "loading" : "error");
+  }, [normalizedImageUrl]);
 
   // Extract hostname for favicon fallback
   const getHostname = (url: string) => {
@@ -47,8 +50,20 @@ export function SiteCard({ site, onEdit }: SiteCardProps) {
 
   return (
     <div
-      className="group relative w-full rounded-2xl bg-[#1C1C1E] p-2 shadow-[0px_0px_1px_0px_rgba(255,255,255,0.3)]"
-      style={{ height: 270 }}
+      className="group relative w-full rounded-2xl p-2 transition-all duration-200"
+      style={{
+        height: 270,
+        transform: isHovered ? "translateY(-4px)" : "translateY(0)",
+        backgroundColor: isHovered ? "#202023" : "#1C1C1E",
+        boxShadow: isHovered
+          ? "0px 0px 1px 0px rgba(255,255,255,0.45), 0px 12px 30px -16px rgba(0,0,0,0.7)"
+          : "0px 0px 1px 0px rgba(255,255,255,0.3)",
+      }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => {
+        setIsHovered(false);
+        setIsEditHovered(false);
+      }}
     >
       {site.url ? (
         <a
@@ -112,24 +127,37 @@ export function SiteCard({ site, onEdit }: SiteCardProps) {
         >
           {hasImage && (
             <img
-              src={site.imageUrl}
+              key={normalizedImageUrl}
+              src={normalizedImageUrl}
               alt={site.title}
               loading="lazy"
               onLoad={() => setImageStatus("loaded")}
               onError={() => setImageStatus("error")}
-              className="absolute inset-0 size-full object-cover"
+              className="absolute inset-0 size-full object-cover transition-opacity duration-300"
               style={{ opacity: imageStatus === "loaded" ? 1 : 0 }}
             />
           )}
+          <div
+            className="absolute inset-0 transition-opacity duration-200 pointer-events-none"
+            style={{
+              backgroundColor: "rgba(0,0,0,0.45)",
+              opacity: isHovered ? 0 : 1,
+            }}
+          />
           {imageStatus !== "loaded" && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="relative h-16 w-16 shrink-0">
-                <img
-                  alt=""
-                  src={placeholderIcon}
-                  className="absolute inset-0 size-full object-cover pointer-events-none"
-                  style={{ opacity: 0.12 }}
-                />
+            <div className="absolute inset-0 z-10 flex items-center justify-center">
+              <div className="flex flex-col items-center gap-2">
+                <div
+                  className="relative h-16 w-16 shrink-0"
+                  style={{ width: 64, height: 64 }}
+                >
+                  <img
+                    alt=""
+                    src={placeholderIcon}
+                    className="absolute inset-0 object-contain pointer-events-none"
+                    style={{ opacity: 0.6, width: "100%", height: "100%" }}
+                  />
+                </div>
               </div>
             </div>
           )}
@@ -143,7 +171,18 @@ export function SiteCard({ site, onEdit }: SiteCardProps) {
             e.preventDefault();
             onEdit?.(site);
           }}
-          className="absolute bottom-4 right-4 z-30 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 backdrop-blur-md text-white/70 transition-all border border-white/10 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto hover:bg-white/20 hover:text-white"
+          onMouseEnter={() => setIsEditHovered(true)}
+          onMouseLeave={() => setIsEditHovered(false)}
+          className="absolute bottom-4 right-4 z-30 flex h-8 w-8 items-center justify-center rounded-full backdrop-blur-md text-white/70 transition-all opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto hover:text-white"
+          style={{
+            backgroundColor: isEditHovered
+              ? "rgba(115,115,115,0.60)"
+              : "rgba(115,115,115,0.35)",
+            borderWidth: 0,
+            borderStyle: "none",
+            borderColor: "rgba(0, 0, 0, 0)",
+            borderImage: "none",
+          }}
           title="Edit Resource"
       >
           <Pencil className="h-4 w-4" />
