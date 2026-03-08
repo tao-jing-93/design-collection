@@ -182,16 +182,14 @@ export default function App() {
     toast.success("已退出登录");
   };
 
-  // Fetch sites from server
+  // Fetch sites from server（不带 Authorization，走匿名调用，避免 sb_ key 被网关校验 401）
   useEffect(() => {
     const fetchSites = async () => {
       try {
         const response = await fetch(
           `https://${projectId}.supabase.co/functions/v1/make-server-5cb5e93b/sites`,
           {
-            headers: {
-              Authorization: `Bearer ${publicAnonKey}`,
-            },
+            headers: {},
           },
         );
 
